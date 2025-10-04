@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校園閱讀打卡牆 (Google Sheet 版)</title>
+    <!-- 載入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 使用 Google Font Inter */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+TC:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f7f9fb; /* 淺灰色背景 */
+        }
+        /* 自定義滾動條樣式，讓它看起來更美觀 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1; /* gray-300 */
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: #94a3b8; /* gray-400 */
+        }
+        /* 隱藏原生箭頭 */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        /* 自定義焦點效果，讓輸入框更突出 */
+        .input-glow:focus {
+            outline: none;
+            border-color: #f87171; /* red-400 */
+            box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.4);
+        }
+        
+        /* Custom CSS for Toggle Switch */
+        .toggle-checkbox {
+            top: 0;
+            right: 0;
+            margin: 0;
+            transition: right 0.2s ease-in-out, background-color 0.2s ease-in-out;
+        }
+        .toggle-checkbox:checked {
+            right: 1.25rem; /* ~20px */
+        }
+        .toggle-label {
+            background-color: #fca5a5; /* Red-300 */
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #dc2626; /* Red-600 */
+        }
+    </style>
+</head>
+<body class="p-4 lg:p-8">
+
+    <!-- Header 標題區 (增加漸層效果) -->
+    <header class="text-center mb-8 lg:mb-12">
+        <h1 class="text-3xl lg:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-pink-500 mb-2">
+            📚 校園閱讀打卡牆
+        </h1>
+        <p class="text-lg text-gray-600">
+            記錄你的閱讀旅程，分享你的奇思妙想！ (Google Sheet 版本)
+        </p>
+    </header>
+
+    <!-- Main Content 主要內容區 -->
+    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
+        
+        <!-- 左側: 打卡表單 (Check-in Form) -->
+        <section class="lg:col-span-1">
+            
+            <!-- Admin Configuration Interface (管理介面) -->
+            <div id="adminConfig" class="bg-red-50 p-4 rounded-xl shadow-inner border border-red-200 mb-6 hidden">
+                <h3 class="text-lg font-bold text-red-700 mb-3 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.49 3.17a.75.75 0 01-1.06 0L8.7 1.95a.75.75 0 10-1.06 1.06L9.43 4.23a.75.75 0 010 1.06L7.64 7.08a.75.75 0 101.06 1.06l1.73-1.73a.75.75 0 011.06 0l1.73 1.73a.75.75 0 101.06-1.06l-1.73-1.73a.75.75 0 010-1.06l1.73-1.73a.75.75 0 10-1.06-1.06L11.49 3.17zM5.5 10a.5.5 0 01.5-.5h4a.5.5 0 010 1H6a.5.5 0 01-.5-.5zM5 15.5a.5.5 0 01.5-.5h4a.5.5 0 010 1H5.5a.5.5 0 01-.5-.5z" clip-rule="evenodd" /></svg>
+                    <span>管理員設定與工具</span>
+                </h3>
+                <div class="flex items-center justify-between">
+                    <label for="allowCommentsToggle" class="text-sm font-medium text-red-800">允許新增留言</label>
+                    <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" name="allowComments" id="allowCommentsToggle" onchange="handleConfigChange(event)"
+                            class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                        <label for="allowCommentsToggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                    </div>
+                </div>
+                
+                <div class="mt-4 border-t pt-4 border-red-200">
+                    <h4 class="text-base font-bold text-red-700 mb-2">資料管理</h4>
+                    <div class="space-y-2">
+                        <button onclick="handleExportData()" 
+                            class="w-full text-left p-2 bg-red-200 hover:bg-red-300 rounded-lg text-sm text-red-800 font-medium transition duration-150">
+                            💾 匯出資料 (JSON)
+                        </button>
+                        <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="handleImportData(event)">
+                        <button onclick="document.getElementById('importFileInput').click()" 
+                            class="w-full text-left p-2 bg-red-200 hover:bg-red-300 rounded-lg text-sm text-red-800 font-medium transition duration-150">
+                            📤 匯入資料 (JSON)
+                        </button>
+                        <button onclick="handleClearDataPrompt()" id="clearDataButton"
+                            class="w-full text-left p-2 bg-red-500 hover:bg-red-600 rounded-lg text-sm text-white font-medium transition duration-150 shadow-md">
+                            🗑️ 清空所有資料
+                        </button>
+                        <p id="adminMessage" class="text-sm mt-1 text-red-600 hidden"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-3xl shadow-2xl border border-red-100 sticky top-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-5 border-b pb-3 border-red-200">我要打卡！</h2>
+                <form id="checkinForm" onsubmit="handleCheckin(event)">
+                    <div class="mb-4">
+                        <label for="classSelect" class="block text-sm font-medium text-gray-700 mb-1">班級名稱</label>
+                        <input type="text" id="classSelect" required placeholder="請輸入班級名稱 (例如: 301)"
+                            class="w-full p-2.5 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg transition duration-200 input-glow">
+                    </div>
+                    <div class="mb-4">
+                        <label for="nameInput" class="block text-sm font-medium text-gray-700 mb-1">姓名</label>
+                        <input type="text" id="nameInput" required placeholder="請輸入姓名"
+                            class="w-full p-2.5 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg transition duration-200 input-glow">
+                    </div>
+                    <div class="mb-4">
+                        <label for="bookTitle" class="block text-sm font-medium text-gray-700 mb-1">書名</label>
+                        <input type="text" id="bookTitle" required placeholder="輸入或選擇書名"
+                            class="w-full p-2.5 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg transition duration-200 input-glow">
+                    </div>
+                    <div class="mb-4 flex space-x-3">
+                        <div class="flex-1">
+                            <label for="startPage" class="block text-sm font-medium text-gray-700 mb-1">從第幾頁</label>
+                            <input type="number" id="startPage" required min="1" placeholder="例如: 1"
+                                class="w-full p-2.5 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg transition duration-200 input-glow">
+                        </div>
+                        <div class="flex-1">
+                            <label for="endPage" class="block text-sm font-medium text-gray-700 mb-1">到第幾頁</label>
+                            <input type="number" id="endPage" required min="1" placeholder="例如: 10"
+                                class="w-full p-2.5 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg transition duration-200 input-glow">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="thoughts" class="block text-sm font-medium text-gray-700 mb-1">
+                            閱讀時腦中產生的想法 (500字以內)
+                        </label>
+                        <textarea id="thoughts" required maxlength="500" placeholder="寫下你的小宇宙..."
+                            class="w-full p-2.5 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg transition duration-200 input-glow h-24 resize-none"></textarea>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">我的心情</label>
+                        <div id="moodSelector" class="flex flex-wrap gap-2 justify-start">
+                            <input type="radio" id="mood1" name="mood" value="🥰" class="hidden" required>
+                            <label for="mood1" class="text-2xl p-2 rounded-full cursor-pointer hover:bg-red-50 transition duration-150 ring-2 ring-transparent has-[:checked]:ring-red-400 has-[:checked]:bg-red-100">🥰</label>
+                            <input type="radio" id="mood2" name="mood" value="😂" class="hidden">
+                            <label for="mood2" class="text-2xl p-2 rounded-full cursor-pointer hover:bg-red-50 transition duration-150 ring-2 ring-transparent has-[:checked]:ring-red-400 has-[:checked]:bg-red-100">😂</label>
+                            <input type="radio" id="mood3" name="mood" value="🤔" class="hidden">
+                            <label for="mood3" class="text-2xl p-2 rounded-full cursor-pointer hover:bg-red-50 transition duration-150 ring-2 ring-transparent has-[:checked]:ring-red-400 has-[:checked]:bg-red-100">🤔</label>
+                            <input type="radio" id="mood4" name="mood" value="😭" class="hidden">
+                            <label for="mood4" class="text-2xl p-2 rounded-full cursor-pointer hover:bg-red-50 transition duration-150 ring-2 ring-transparent has-[:checked]:ring-red-400 has-[:checked]:bg-red-100">😭</label>
+                            <input type="radio" id="mood5" name="mood" value="🤩" class="hidden">
+                            <label for="mood5" class="text-2xl p-2 rounded-full cursor-pointer hover:bg-red-50 transition duration-150 ring-2 ring-transparent has-[:checked]:ring-red-400 has-[:checked]:bg-red-100">🤩</label>
+                            <input type="radio" id="mood6" name="mood" value="😵‍💫" class="hidden">
+                            <label for="mood6" class="text-2xl p-2 rounded-full cursor-pointer hover:bg-red-50 transition duration-150 ring-2 ring-transparent has-[:checked]:ring-red-400 has-[:checked]:bg-red-100">😵‍💫</label>
+                        </div>
+                    </div>
+                    <button type="submit" id="submitButton"
+                        class="w-full bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold py-3 px-4 rounded-xl hover:from-red-700 hover:to-red-800 transition duration-300 shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-300">
+                        送出打卡紀錄
+                    </button>
+                    <p id="messageBox" class="text-sm text-center mt-3 text-red-500 hidden"></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- 右側: 閱讀紀錄牆 -->
+        <section class="lg:col-span-3">
+            <div class="flex justify-between items-center mb-5">
+                <h2 class="text-2xl font-bold text-gray-800">大家的閱讀紀錄</h2>
+                <span id="currentUserDisplay" class="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded"></span>
+            </div>
+            <div class="flex flex-wrap gap-3 mb-6 p-4 bg-white rounded-xl shadow-md border border-gray-200">
+                <select id="classFilterSelect" class="p-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-red-400 transition duration-150"></select>
+                <select id="timeFilterSelect" class="p-2 border border-gray-300 rounded-lg text-sm bg-white hover:border-red-400 transition duration-150">
+                    <option value="all">所有時間</option>
+                    <option value="today">本日</option>
+                    <option value="3days">三日</option>
+                    <option value="thisweek">本週</option>
+                    <option value="2weeks">二週</option>
+                    <option value="thismonth">本月</option>
+                    <option value="6months">半年</option>
+                    <option value="1year">一年</option>
+                </select>
+                <input type="text" id="nameFilterInput" placeholder="依姓名篩選..." class="p-2 border border-gray-300 rounded-lg text-sm max-w-40 hover:border-red-400 transition duration-150">
+                <input type="text" id="bookTitleFilterInput" placeholder="依書名篩選..." class="p-2 border border-gray-300 rounded-lg text-sm max-w-40 hover:border-red-400 transition duration-150">
+                <select id="sortSelect" class="p-2 border border-gray-300 rounded-lg text-sm bg-white ml-auto hover:border-red-400 transition duration-150">
+                    <option value="latest">依最新排序</option>
+                    <option value="likes">依讚數排序</option>
+                </select>
+                <button onclick="clearFilters()" class="bg-gray-200 hover:bg-red-100 text-gray-700 hover:text-red-700 font-medium py-2 px-3 rounded-lg text-sm transition duration-150">
+                    清除篩選
+                </button>
+            </div>
+            <div id="recordsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6 custom-scrollbar">
+                <div class="text-center text-gray-500 p-8 bg-white rounded-xl shadow-lg md:col-span-2" id="loadingIndicator">
+                    載入中... 請稍候。
+                </div>
+            </div>
+        </section>
+
+    </main>
+    
+    <!-- Modals (刪除, 留言, 全文) -->
+    <div id="confirmationModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300">
+        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full transform transition-transform duration-300 scale-100">
+            <h3 class="text-xl font-bold text-red-600 mb-4">確認刪除紀錄</h3>
+            <p class="text-gray-700 mb-6">您確定要永久刪除這條閱讀打卡紀錄嗎？此操作無法復原。</p>
+            <div class="flex justify-end space-x-3">
+                <button onclick="cancelDelete()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-150 font-medium">
+                    取消
+                </button>
+                <button onclick="confirmDelete()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-150 font-medium shadow-md">
+                    確認刪除
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="commentModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300">
+        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-lg w-full transform transition-transform duration-300 scale-100">
+            <h3 class="text-xl font-bold text-blue-600 mb-4">新增留言</h3>
+            <p class="text-gray-700 mb-4">請留下您對這篇打卡紀錄的想法或鼓勵！</p>
+            <form id="commentForm" onsubmit="handleCommentSubmit(event)">
+                <div class="mb-4 p-3 bg-gray-100 rounded-lg border border-gray-300">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">您的身份 (完整 ID)</label>
+                    <p id="commentUserIdDisplay" class="text-sm font-mono text-gray-800 break-all"></p>
+                </div>
+                <textarea id="commentText" required maxlength="200" placeholder="最多200字..."
+                    class="w-full p-3 mb-4 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg resize-none h-24 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="cancelComment()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-150 font-medium">
+                        取消
+                    </button>
+                    <button type="submit" id="commentSubmitButton" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150 font-medium shadow-md">
+                        送出留言
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="fullPostModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300">
+        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-3xl w-full mx-4 lg:mx-auto max-h-[90vh] overflow-y-auto transform transition-transform duration-300 scale-100">
+            <div class="flex justify-between items-start border-b pb-3 mb-4">
+                <h3 id="fullPostTitle" class="text-2xl font-bold text-red-600"></h3>
+                <button onclick="closeFullPostModal()" class="text-gray-400 hover:text-gray-600 transition duration-150 p-1">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div id="fullPostContent" class="space-y-4 text-gray-700"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- 設定與全域變數 ---
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwW7B2dV1spZvdJNbh35YC4T46rVmU3zzTs4Ucpss8rFfV8xEfUwrLg1A16DQC6mbSW/exec';
+        const ADMIN_ID = '00407907563263820026';
+
+        function getUserId() {
+            let id = localStorage.getItem('readingWallUserId');
+            if (!id) {
+                id = crypto.randomUUID();
+                localStorage.setItem('readingWallUserId', id);
+            }
+            return id;
+        }
+        
+        const userId = getUserId();
+        let allRecords = [];
+        let appConfig = { allowComments: true };
+        let recordToDeleteId = null; 
+        let recordToCommentId = null; 
+        let pendingAdminAction = null; 
+
+        // --- 主程式邏輯 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("---");
+            console.log("您的 User ID 是:", userId);
+            console.log("請將此 ID 複製並貼到程式碼中的 ADMIN_ID 變數，以及 code.gs 腳本中的 ADMIN_ID 變數。");
+            console.log("---");
+            
+            document.getElementById('currentUserDisplay').textContent = `目前使用者 ID: ${userId}`;
+            
+            if (GAS_WEB_APP_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
+                document.getElementById('loadingIndicator').innerHTML = '錯誤：請在 index.html 中設定您的 Google Apps Script 網址 (GAS_WEB_APP_URL)。';
+                return;
+            }
+            
+            fetchRecords();
+            setupFilterListeners();
+        });
+
+        function showAdminMessage(message, type = 'info') {
+            const msgBox = document.getElementById('adminMessage');
+            msgBox.textContent = message;
+            msgBox.classList.remove('hidden', 'text-red-600', 'text-green-600', 'text-blue-600');
+            let colorClass = type === 'error' ? 'text-red-600' : type === 'success' ? 'text-green-600' : 'text-blue-600';
+            msgBox.classList.add(colorClass);
+            msgBox.classList.remove('hidden');
+            setTimeout(() => msgBox.classList.add('hidden'), 5000);
+        }
+        
+        async function apiRequest(action, data = {}) {
+            try {
+                const response = await fetch(GAS_WEB_APP_URL, {
+                    method: 'POST',
+                    redirect: "follow",
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action, data })
+                });
+                if (!response.ok) {
+                    throw new Error(`伺服器錯誤 (HTTP ${response.status})`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`API Request Error (${action}):`, error);
+                showAdminMessage(`操作失敗: ${error.message}`, 'error');
+                return { success: false, message: error.message };
+            }
+        }
+
+        async function fetchRecords() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            loadingIndicator.innerHTML = '正在從 Google Sheet 載入資料...';
+            loadingIndicator.classList.remove('hidden');
+
+            try {
+                const response = await fetch(GAS_WEB_APP_URL);
+                if (!response.ok) throw new Error(`無法連接後端 API (HTTP ${response.status})`);
+                
+                const result = await response.json();
+                if (result.success && Array.isArray(result.data)) {
+                    allRecords = result.data.map(r => ({
+                      ...r,
+                      timestampDate: new Date(r.timestamp),
+                      timestampStr: new Date(r.timestamp).toLocaleString('zh-TW', { hour12: false })
+                    }));
+                    appConfig = result.config || { allowComments: true };
+
+                    populateClassFilter(allRecords);
+                    updateAdminUI();
+                    filterAndRender();
+                } else {
+                    throw new Error(result.message || '後端回傳的資料格式不正確。');
+                }
+            } catch (error) {
+                const errorMessage = `
+                    <div class="text-left p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <h3 class="font-bold text-red-700 text-lg mb-2">😭 糟糕，資料載入失敗！</h3>
+                        <p class="text-gray-700 mb-3">這通常是後端設定問題，請依照以下步驟檢查：</p>
+                        <ul class="list-decimal list-inside space-y-2 text-sm text-gray-600">
+                            <li><strong>修改後端 (code.gs) 後，是否「重新部署」？</strong><br>必須點擊「部署」>「管理部署作業」> 選擇您的部署 > 點擊鉛筆圖示 > 版本選「<strong>新版本</strong>」> 再按「部署」。</li>
+                            <li><strong>部署時，「誰可以存取」是否設為「任何人」？</strong><br>必須是「任何人」，否則此網頁無法讀取資料。</li>
+                            <li><strong>Google Sheet 的工作表名稱是否正確？</strong><br>請確認名稱為「<code>打卡紀錄</code>」和「<code>設定</code>」，不能有錯字。</li>
+                            <li><strong>「打卡紀錄」工作表的欄位標題是否正確？</strong><br>請檢查第一列的標題是否與教學文件完全相符，不能多也不能少。</li>
+                        </ul>
+                        <p class="mt-4 text-xs text-gray-500">詳細錯誤訊息: ${error.message}</p>
+                    </div>
+                `;
+                loadingIndicator.innerHTML = errorMessage;
+            }
+        }
+
+        // --- 事件處理函數 (Handle Functions) ---
+        window.handleCheckin = async (event) => {
+            event.preventDefault();
+            const button = document.getElementById('submitButton');
+            const messageBox = document.getElementById('messageBox');
+            messageBox.classList.add('hidden');
+            
+            const form = event.target;
+            const startPage = parseInt(form.startPage.value);
+            const endPage = parseInt(form.endPage.value);
+            if (endPage < startPage) {
+                messageBox.textContent = '結束頁碼不能小於開始頁碼。';
+                messageBox.classList.remove('hidden');
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = '送出中...';
+
+            const newRecord = {
+                id: crypto.randomUUID(),
+                timestamp: new Date().toISOString(),
+                userId: userId,
+                userName: form.nameInput.value,
+                userClass: form.classSelect.value,
+                bookTitle: form.bookTitle.value,
+                startPage: startPage,
+                endPage: endPage,
+                thoughts: form.thoughts.value,
+                moodEmoji: form.mood.value,
+                rating: 5,
+                likes: 0,
+                comments: [],
+                likedBy: [],
+                hidden: false
+            };
+
+            const result = await apiRequest('addRecord', newRecord);
+
+            if (result.success) {
+                messageBox.textContent = '打卡成功！';
+                messageBox.classList.remove('hidden', 'text-red-500');
+                messageBox.classList.add('text-green-600');
+                form.reset();
+                fetchRecords();
+            } else {
+                messageBox.textContent = `打卡失敗: ${result.message}`;
+                messageBox.classList.remove('hidden', 'text-green-600');
+                messageBox.classList.add('text-red-500');
+            }
+
+            button.disabled = false;
+            button.textContent = '送出打卡紀錄';
+        };
+
+        window.handleLike = async (recordId) => {
+            const result = await apiRequest('toggleLike', { recordId, userId });
+            if (result.success) {
+                const record = allRecords.find(r => r.id === recordId);
+                if (record) {
+                    const hasLiked = (record.likedBy || []).includes(userId);
+                    if (hasLiked) {
+                        record.likedBy = record.likedBy.filter(id => id !== userId);
+                    } else {
+                        if (!record.likedBy) record.likedBy = [];
+                        record.likedBy.push(userId);
+                    }
+                    record.likes = record.likedBy.length;
+                    filterAndRender();
+                }
+            }
+        };
+
+        window.handleDelete = (recordId) => {
+            if (userId !== ADMIN_ID) return;
+            recordToDeleteId = recordId;
+            document.querySelector('#confirmationModal h3').textContent = '確認刪除紀錄';
+            document.querySelector('#confirmationModal p').textContent = '您確定要永久刪除這條閱讀打卡紀錄嗎？此操作無法復原。';
+            document.querySelector('#confirmationModal button:last-child').textContent = '確認刪除';
+            pendingAdminAction = null;
+            document.getElementById('confirmationModal').classList.remove('hidden');
+        };
+        
+        window.confirmDelete = async () => {
+            document.getElementById('confirmationModal').classList.add('hidden');
+            let result;
+            if (pendingAdminAction?.type === 'clear') {
+                result = await apiRequest('clearAllData', { userId });
+            } else if (pendingAdminAction?.type === 'import') {
+                if (pendingAdminAction.resolve) pendingAdminAction.resolve(true);
+            } else if (recordToDeleteId) {
+                result = await apiRequest('deleteRecord', { recordId: recordToDeleteId, userId });
+            }
+            if (result?.success) {
+                showAdminMessage(result.message || '操作成功。', 'success');
+                fetchRecords();
+            }
+            cancelDelete();
+        };
+        
+        window.handleConfigChange = async (event) => {
+            if (userId !== ADMIN_ID) return;
+            const newConfig = { allowComments: event.target.checked };
+            const result = await apiRequest('updateConfig', { userId, config: newConfig });
+            if(result.success) {
+                appConfig.allowComments = newConfig.allowComments;
+                filterAndRender();
+            } else {
+                event.target.checked = !newConfig.allowComments;
+            }
+        };
+
+        window.handleToggleVisibility = async (recordId, currentStatus) => {
+             if (userId !== ADMIN_ID) return;
+             const result = await apiRequest('toggleVisibility', { userId, recordId, newStatus: !currentStatus });
+             if (result.success) fetchRecords();
+        };
+
+        window.handleCommentSubmit = async (event) => {
+            event.preventDefault();
+            if (!recordToCommentId) return;
+            const button = document.getElementById('commentSubmitButton');
+            const commentText = document.getElementById('commentText').value.trim();
+            if (commentText.length === 0) return;
+            button.disabled = true;
+            button.textContent = '送出中...';
+            const newComment = { userId: userId, text: commentText, timestamp: new Date().toISOString() };
+            const result = await apiRequest('addComment', { recordId: recordToCommentId, comment: newComment });
+            if (result.success) {
+                cancelComment();
+                fetchRecords();
+            }
+            button.disabled = false;
+            button.textContent = '送出留言';
+        };
+
+        window.handleDeleteComment = async (recordId, commentTimestamp) => {
+            if (userId !== ADMIN_ID) return;
+            const result = await apiRequest('deleteComment', { userId, recordId, commentTimestamp });
+            if(result.success) fetchRecords();
+        };
+
+        window.handleExportData = () => {
+            if (userId !== ADMIN_ID) return;
+            const jsonString = JSON.stringify(allRecords, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reading_checkins_export_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showAdminMessage('資料匯出成功。', 'success');
+        };
+        
+        window.handleImportData = (event) => {
+             if (userId !== ADMIN_ID) return;
+             const file = event.target.files[0];
+             if (!file) { event.target.value = ''; return; }
+             const reader = new FileReader();
+             reader.onload = async (e) => {
+                try {
+                    const recordsToImport = JSON.parse(e.target.result);
+                    if (!Array.isArray(recordsToImport)) throw new Error('檔案格式錯誤');
+                    const isConfirmed = await handleImportConfirmation();
+                    if(!isConfirmed) {
+                        showAdminMessage('匯入已取消。', 'info');
+                        event.target.value = '';
+                        return;
+                    }
+                    showAdminMessage(`正在匯入 ${recordsToImport.length} 筆紀錄...`, 'info');
+                    const result = await apiRequest('importData', { userId, records: recordsToImport });
+                    if (result.success) {
+                        showAdminMessage(result.message, 'success');
+                        fetchRecords();
+                    }
+                } catch (err) {
+                    showAdminMessage(`匯入失敗: ${err.message}`, 'error');
+                } finally {
+                    event.target.value = '';
+                }
+             };
+             reader.readAsText(file);
+        };
+        
+        window.handleClearDataPrompt = () => {
+             if (userId !== ADMIN_ID) return;
+             pendingAdminAction = { type: 'clear' };
+             const modal = document.getElementById('confirmationModal');
+             document.querySelector('#confirmationModal h3').textContent = '🚨 確認清空所有資料';
+             document.querySelector('#confirmationModal p').textContent = '此操作將**永久刪除**所有打卡紀錄。此動作無法復原！您確定要清空嗎？';
+             modal.classList.remove('hidden');
+        };
+
+        function setupFilterListeners() {
+            ['classFilterSelect', 'timeFilterSelect', 'sortSelect'].forEach(id => document.getElementById(id)?.addEventListener('change', window.filterAndRender));
+            ['nameFilterInput', 'bookTitleFilterInput'].forEach(id => document.getElementById(id)?.addEventListener('input', window.filterAndRender));
+        }
+
+        function populateClassFilter(records) {
+            const selectElement = document.getElementById('classFilterSelect');
+            if (!selectElement) return;
+            const currentValue = selectElement.value;
+            const uniqueClasses = new Set(records.map(r => String(r.userClass || '').trim()).filter(Boolean));
+            selectElement.innerHTML = `<option value="">所有班級</option>`;
+            Array.from(uniqueClasses).sort((a, b) => a.localeCompare(b, 'zh-TW', { numeric: true })).forEach(className => {
+                selectElement.innerHTML += `<option value="${className}" ${className === currentValue ? 'selected' : ''}>${className}</option>`;
+            });
+            if (currentValue && !uniqueClasses.has(currentValue)) {
+                 selectElement.value = "";
+            }
+        }
+
+        function getCutoffDate(filterValue) {
+            const now = new Date();
+            const cutoff = new Date(now);
+            switch (filterValue) {
+                case 'today': cutoff.setHours(0, 0, 0, 0); break;
+                case '3days': cutoff.setDate(now.getDate() - 3); break;
+                case 'thisweek': const day = now.getDay() || 7; cutoff.setDate(now.getDate() - day + 1); cutoff.setHours(0, 0, 0, 0); break;
+                case '2weeks': cutoff.setDate(now.getDate() - 14); break;
+                case 'thismonth': cutoff.setDate(1); cutoff.setHours(0, 0, 0, 0); break;
+                case '6months': cutoff.setMonth(now.getMonth() - 6); break;
+                case '1year': cutoff.setFullYear(now.getFullYear() - 1); break;
+                default: return new Date(0); 
+            }
+            return cutoff;
+        }
+
+        window.filterAndRender = function() {
+            const nameFilter = (document.getElementById('nameFilterInput')?.value || '').toLowerCase().trim();
+            const bookFilter = (document.getElementById('bookTitleFilterInput')?.value || '').toLowerCase().trim();
+            const classFilter = (document.getElementById('classFilterSelect')?.value || '').trim(); 
+            const timeFilter = (document.getElementById('timeFilterSelect')?.value || 'all').trim(); 
+            const sortPreference = (document.getElementById('sortSelect')?.value || 'latest').trim(); 
+
+            let filteredRecords = allRecords.filter(record => 
+                (!classFilter || String(record.userClass || '').trim() === classFilter) &&
+                (!nameFilter || (record.userName || '').toLowerCase().includes(nameFilter)) &&
+                (!bookFilter || (record.bookTitle || '').toLowerCase().includes(bookFilter)) &&
+                (timeFilter === 'all' || (record.timestampDate && record.timestampDate >= getCutoffDate(timeFilter)))
+            );
+            renderRecords(filteredRecords, sortPreference); 
+        }
+
+        function updateAdminUI() {
+            const adminConfigDiv = document.getElementById('adminConfig');
+            if (userId === ADMIN_ID) {
+                adminConfigDiv.classList.remove('hidden');
+                document.getElementById('allowCommentsToggle').checked = appConfig.allowComments;
+            } else {
+                adminConfigDiv.classList.add('hidden');
+            }
+        }
+        
+        function handleImportConfirmation() {
+            return new Promise((resolve) => {
+                pendingAdminAction = { type: 'import', resolve };
+                const modal = document.getElementById('confirmationModal');
+                document.querySelector('#confirmationModal h3').textContent = '⚠️ 確認匯入資料';
+                document.querySelector('#confirmationModal p').textContent = '匯入將會清除所有現有紀錄並寫入新資料。您確定要繼續嗎？';
+                const confirmBtn = document.querySelector('#confirmationModal button:last-child');
+                confirmBtn.textContent = '確認匯入';
+                confirmBtn.className = confirmBtn.className.replace(/bg-red-\d+/, 'bg-blue-600').replace(/hover:bg-red-\d+/, 'hover:bg-blue-700');
+                modal.classList.remove('hidden');
+            });
+        }
+        
+        window.cancelDelete = () => {
+            document.getElementById('confirmationModal').classList.add('hidden');
+            if (pendingAdminAction?.resolve) pendingAdminAction.resolve(false);
+            const confirmBtn = document.querySelector('#confirmationModal button:last-child');
+            confirmBtn.className = confirmBtn.className.replace(/bg-blue-\d+/, 'bg-red-600').replace(/hover:bg-blue-\d+/, 'hover:bg-red-700');
+            recordToDeleteId = null; 
+            pendingAdminAction = null; 
+        };
+
+        window.showCommentModal = (recordId) => {
+            if (!appConfig.allowComments) {
+                alert('留言功能目前已被管理員關閉。');
+                return;
+            }
+            recordToCommentId = recordId;
+            document.getElementById('commentText').value = '';
+            document.getElementById('commentUserIdDisplay').textContent = `ID: ${userId}`; 
+            document.getElementById('commentModal').classList.remove('hidden');
+        };
+
+        window.cancelComment = () => {
+            recordToCommentId = null;
+            document.getElementById('commentModal').classList.add('hidden');
+        };
+        
+        window.showFullPostModal = (recordId) => {
+            const record = allRecords.find(r => r.id === recordId);
+            if (!record) return;
+            document.getElementById('fullPostTitle').textContent = `《${record.bookTitle}》 - 閱讀紀錄`;
+            const contentDiv = document.getElementById('fullPostContent');
+            const starsHtml = Array(5).fill(0).map((_, i) => `<svg class="w-5 h-5 ${i < (record.rating || 5) ? 'text-yellow-400' : 'text-gray-300'} fill-current" viewBox="0 0 20 20"><path d="M10 15l-5.878 3.09 1.123-6.545L.487 7.234l6.561-.955L10 1l2.952 5.279 6.561.955-4.758 4.011 1.123 6.545z"/></svg>`).join('');
+            let commentsDisplayHtml = '';
+            if (record.comments && record.comments.length > 0) {
+                commentsDisplayHtml = `<div class="pt-4 border-t border-gray-200"><h4 class="text-lg font-bold text-gray-800 mb-2">留言區 (${record.comments.length}):</h4><div class="space-y-3">${record.comments.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).map(c => `<div class="bg-blue-50 p-3 rounded-lg border border-blue-200"><p class="text-xs font-semibold text-blue-800">用戶 ID: ${(c.userId || '')}</p><p class="text-base text-gray-800 mt-1 whitespace-pre-wrap">${c.text}</p></div>`).join('')}</div></div>`;
+            }
+            contentDiv.innerHTML = `<div class="p-3 bg-red-50 rounded-lg border border-red-200 grid grid-cols-2 lg:grid-cols-4 gap-3"><p>作者：<span class="text-red-700">${record.userName} (${record.userClass})</span></p><p>心情：<span class="text-xl">${record.moodEmoji}</span></p><p>時間：<span class="text-gray-600">${new Date(record.timestamp).toLocaleDateString()}</span></p><p>ID：<span class="font-mono">${(record.userId || '').substring(0,8)}...</span></p></div><div class="p-3 border-b flex items-center justify-between"><div class="flex items-center space-x-1">${starsHtml}</div><span>頁數：${record.startPage} - ${record.endPage}</span><span class="text-red-600 flex items-center"><svg class="w-4 h-4 mr-1" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>${record.likes || 0}</span></div><div class="p-3 pt-0"><h4 class="text-lg font-bold mb-2 mt-4">想法 (全文)：</h4><p class="text-lg whitespace-pre-wrap p-3 bg-gray-50">${record.thoughts}</p></div>${commentsDisplayHtml}`;
+            document.getElementById('fullPostModal').classList.remove('hidden');
+        };
+
+        window.closeFullPostModal = () => document.getElementById('fullPostModal').classList.add('hidden');
+
+        function renderRecords(recordsToRender, sortPreference = 'latest') {
+            const container = document.getElementById('recordsContainer');
+            container.innerHTML = ''; 
+            recordsToRender.sort((a, b) => (sortPreference === 'likes') ? ((b.likes || 0) - (a.likes || 0) || (b.timestampDate - a.timestampDate)) : (b.timestampDate - a.timestampDate));
+            let displayRecords = (userId === ADMIN_ID) ? recordsToRender : recordsToRender.filter(record => !record.hidden);
+            if (displayRecords.length === 0) {
+                container.innerHTML = `<div class="md:col-span-2 text-center text-gray-500 p-8 bg-white rounded-xl shadow-lg">目前沒有符合條件的紀錄。</div>`;
+                return;
+            }
+            displayRecords.forEach(record => container.innerHTML += createRecordCard(record));
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if(loadingIndicator) loadingIndicator.remove();
+        }
+
+        function createRecordCard(record) {
+            const isLiked = (record.likedBy || []).includes(userId);
+            const isHidden = record.hidden === true;
+            let adminButtons = '';
+            if (userId === ADMIN_ID) {
+                adminButtons = `<div class="flex space-x-3"><button onclick="showFullPostModal('${record.id}')" class="text-blue-600 hover:text-blue-800 text-sm">放大</button><button onclick="handleToggleVisibility('${record.id}', ${isHidden})" class="${isHidden ? 'text-green-600' : 'text-yellow-600'} text-sm">${isHidden ? '顯示' : '隱形'}</button><button onclick="handleDelete('${record.id}')" class="text-red-500 hover:text-red-700 text-sm">刪除</button></div>`;
+            }
+            let commentButton = appConfig.allowComments ? `<button onclick="showCommentModal('${record.id}')" class="text-blue-500 hover:text-blue-600 text-sm">新增留言...</button>` : `<span class="text-gray-400 text-sm">留言已關閉</span>`;
+            let commentsHtml = '';
+            if (record.comments && record.comments.length > 0) {
+                commentsHtml = `<div class="mt-4 pt-3 border-t"><h4 class="text-sm font-semibold mb-2">留言 (${record.comments.length}):</h4><div class="space-y-2 max-h-32 overflow-y-auto custom-scrollbar p-1">${record.comments.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).map(c => {
+                    let deleteBtn = userId === ADMIN_ID ? `<button onclick="handleDeleteComment('${record.id}', '${c.timestamp}')" class="ml-auto text-xs text-red-400">刪除</button>` : '';
+                    return `<div class="bg-gray-50 p-3 rounded-lg"><div class="flex items-center"><p class="text-xs font-bold">${(c.userId || '').substring(0,8)}...</p>${deleteBtn}</div><p class="text-sm mt-1">${c.text}</p></div>`;
+                }).join('')}</div></div>`;
+            }
+            return `<div class="${isHidden ? 'bg-yellow-50' : 'bg-white'} p-6 rounded-2xl shadow-xl flex flex-col"><div class="flex justify-between items-start mb-4"><div class="flex items-center space-x-2"><span class="text-3xl">${record.moodEmoji}</span><div><p class="font-bold">${record.userName} (${record.userClass})</p><p class="text-xs text-gray-400">${record.timestampStr}</p></div></div>${isHidden ? `<span class="text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full">已隱藏</span>`: ''}</div><h3 class="text-xl font-bold text-red-600 mb-2">${record.bookTitle}</h3><p class="text-gray-800 flex-grow max-h-40 overflow-y-auto custom-scrollbar">${record.thoughts}</p><div class="flex justify-between items-center pt-4 border-t mt-4"><button onclick="handleLike('${record.id}')" class="flex items-center space-x-1 ${isLiked ? 'text-red-500' : 'text-gray-600'}"><svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span>${record.likes || 0}</span></button><div class="flex items-center space-x-4">${adminButtons}${commentButton}</div></div>${commentsHtml}</div>`;
+        }
+
+        window.clearFilters = () => {
+            ['nameFilterInput', 'bookTitleFilterInput', 'classFilterSelect'].forEach(id => document.getElementById(id).value = '');
+            ['timeFilterSelect', 'sortSelect'].forEach(id => document.getElementById(id).selectedIndex = 0);
+            filterAndRender();
+        }
+    </script>
+</body>
+</html>
+
